@@ -1,0 +1,32 @@
+/* 四 Tab 底部导航（原生页间跳转版，不用 iframe：file:// 下 localStorage 与同源更稳） */
+:root{--tabbar-h:74px}
+
+body.with-tabbar{padding-bottom:calc(var(--tabbar-h) + env(safe-area-inset-bottom))}
+
+/* 自带滚动容器的页面（美股 / 资讯）不撑 body，改由容器让出底部 */
+body.with-tabbar.scroller-page{padding-bottom:0}
+body.with-tabbar.scroller-page .shell{
+  padding-bottom:calc(20px + var(--tabbar-h) + env(safe-area-inset-bottom))}
+body.with-tabbar.scroller-page .app{
+  padding-bottom:calc(14px + var(--tabbar-h) + env(safe-area-inset-bottom))}
+
+.app-tabbar{
+  position:fixed;left:0;right:0;bottom:0;z-index:90;
+  height:calc(var(--tabbar-h) + env(safe-area-inset-bottom));
+  padding-bottom:env(safe-area-inset-bottom);
+  display:flex;align-items:center;justify-content:space-around;
+  border-top:1px solid rgb(255 255 255 / 14%);
+  background:rgb(12 18 38 / 72%);
+  -webkit-backdrop-filter:blur(28px) saturate(180%);backdrop-filter:blur(28px) saturate(180%);
+  box-shadow:0 -12px 34px rgb(3 6 18 / 45%), inset 0 1px 0 rgb(255 255 255 / 16%);
+}
+.atb-i{flex:1;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:3px;font-size:11px;color:rgb(219 228 255 / 46%);cursor:pointer;text-decoration:none;
+  -webkit-tap-highlight-color:transparent;transition:color .18s,transform .18s}
+.atb-i i{font-style:normal;font-size:17px;line-height:1;transition:transform .18s,filter .18s}
+.atb-i.on{color:#fff}
+.atb-i.on i{color:#cfc6ff;transform:translateY(-1px);filter:drop-shadow(0 0 12px rgb(180 165 255 / 90%))}
+.atb-i:active{transform:scale(.96)}
+
+/* 底部浮动提示（撤销 / toast）排在导航条上方 */
+body.with-tabbar .undo-toast{bottom:calc(var(--tabbar-h) + 22px + env(safe-area-inset-bottom))}

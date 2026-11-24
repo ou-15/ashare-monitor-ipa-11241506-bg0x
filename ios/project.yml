@@ -1,0 +1,46 @@
+name: AshareBoard
+options:
+  bundleIdPrefix: com.ashare
+  deploymentTarget:
+    iOS: "15.0"
+  createIntermediateGroups: true
+  groupSortPosition: top
+settings:
+  base:
+    PRODUCT_NAME: AshareBoard
+    PRODUCT_BUNDLE_IDENTIFIER: com.ashare.board
+    MARKETING_VERSION: 1.2.0
+    CURRENT_PROJECT_VERSION: 3
+    SWIFT_VERSION: "5.0"
+    TARGETED_DEVICE_FAMILY: "1,2"
+    CODE_SIGNING_ALLOWED: NO
+    CODE_SIGNING_REQUIRED: NO
+    CODE_SIGN_IDENTITY: ""
+    DEVELOPMENT_TEAM: ""
+    ENABLE_BITCODE: NO
+    ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+targets:
+  # 单 App 四 Tab：基金（首页）/ 情绪 / 美股 / 资讯，页面间跳转 + 共享底部导航
+  AshareBoard:
+    type: application
+    platform: iOS
+    sources:
+      - path: App
+        excludes:
+          - "Resources/**"
+          - "Info.plist"
+          - "Info-Fund.plist"
+      # 注意：XcodeGen 没有 resources 键，资源也必须写在 sources 里，
+      # www 用 type: folder 保持目录结构（bundle 内为 www/xxx.html）
+      - path: App/Resources/www
+        type: folder
+        buildPhase: resources
+      - path: App/Resources/Assets.xcassets
+    settings:
+      base:
+        INFOPLIST_FILE: App/Info.plist
+        PRODUCT_NAME: AshareBoard
+        PRODUCT_BUNDLE_IDENTIFIER: com.ashare.board
+        CODE_SIGNING_ALLOWED: NO
+        CODE_SIGNING_REQUIRED: NO
+        CODE_SIGN_IDENTITY: ""

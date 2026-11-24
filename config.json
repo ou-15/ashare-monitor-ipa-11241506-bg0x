@@ -1,0 +1,54 @@
+{
+  "app_name": "A股情绪监测",
+  "server": {
+    "port": 8765,
+    "bind": "0.0.0.0",
+    "cache_seconds": 20,
+    "quotes_cache_seconds": 60
+  },
+  "filters": {
+    "exclude_st": true,
+    "exclude_bj": true,
+    "breadth_include_bj": true,
+    "comment": "梯队剔除 ST 与北交所（同原始报告）；涨跌家数按含北交所的全市场口径统计"
+  },
+  "score": {
+    "comment": "自定义情绪分（0-100），非官方指标。子分 = min(100, 原始值 / cap * 100)，负向项用 (1 - 原始值) / cap",
+    "weights": {
+      "zt_count": 0.20,
+      "zt_ratio": 0.15,
+      "max_board": 0.20,
+      "promote_1to2": 0.20,
+      "zhaban_neg": 0.15,
+      "high_feedback": 0.10
+    },
+    "caps": {
+      "zt_count": 120,
+      "zt_ratio": 0.05,
+      "max_board": 8,
+      "promote_1to2": 0.50,
+      "zhaban_neg": 0.60,
+      "high_feedback": 0.60
+    },
+    "labels": {
+      "zt_count": "涨停家数",
+      "zt_ratio": "涨停占比",
+      "max_board": "最高连板",
+      "promote_1to2": "一进二晋级率",
+      "zhaban_neg": "炸板率(负向)",
+      "high_feedback": "高位股反馈"
+    }
+  },
+  "eastmoney": {
+    "comment": "东方财富公开行情接口，无需 API Key / Token",
+    "quote_hosts": ["push2.eastmoney.com", "push2delay.eastmoney.com", "82.push2.eastmoney.com"],
+    "endpoints": [
+      "https://{quote_host}/api/qt/clist/get          全A行情（涨跌家数）",
+      "https://{quote_host}/api/qt/ulist.np/get       指数行情与成交额",
+      "https://push2ex.eastmoney.com/getTopicZTPool    涨停池（连板梯队）",
+      "https://push2ex.eastmoney.com/getTopicZBPool    炸板池",
+      "https://push2ex.eastmoney.com/getTopicDTPool    跌停池",
+      "https://push2ex.eastmoney.com/getTopicZTPool    前一交易日涨停池（晋级率）"
+    ]
+  }
+}

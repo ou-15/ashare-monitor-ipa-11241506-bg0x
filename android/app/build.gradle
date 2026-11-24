@@ -1,0 +1,41 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'com.ashare.board'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId 'com.ashare.board'
+        minSdk 23
+        targetSdk 34
+        versionCode 3
+        versionName "1.2.0"
+    }
+
+    // 不对页面里的 HTML/JS 做压缩改名，assets/www 原样进包
+    androidResources {
+        noCompress 'html', 'js', 'css', 'json', 'webmanifest'
+    }
+
+    buildTypes {
+        debug {
+            minifyEnabled false
+        }
+        release {
+            minifyEnabled false
+            // 无自有证书，先用 debug 签名，保证可直接安装
+            signingConfig signingConfigs.debug
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    packagingOptions {
+        resources.excludes += ['META-INF/*.kotlin_module']
+    }
+}

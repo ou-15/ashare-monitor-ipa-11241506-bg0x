@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>基金实时估值 · 盈亏看板</title>
+<meta name="theme-color" content="#0a0e20">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="基金估值">
+<link rel="manifest" href="manifest.fund.webmanifest">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" href="icon-192.png">
+<link rel="stylesheet" href="fund.css">
+<link rel="stylesheet" href="tabbar.css">
+</head>
+<body>
+
+<!-- 液态玻璃底层：深色流体背景 + 缓慢漂移的色团，玻璃卡片在后面做 backdrop-filter -->
+<div class="lg-stage" aria-hidden="true">
+  <div class="lg-blob lg-b1"></div>
+  <div class="lg-blob lg-b2"></div>
+  <div class="lg-blob lg-b3"></div>
+  <div class="lg-blob lg-b4"></div>
+  <div class="lg-grain"></div>
+</div>
+
+<!-- 折射滤镜：feTurbulence 生成噪声，feDisplacementMap 按噪声位移，形成液体的光学扭曲 -->
+<svg class="lg-defs" width="0" height="0" aria-hidden="true" focusable="false">
+  <filter id="lg-refract" x="-25%" y="-25%" width="150%" height="150%" color-interpolation-filters="sRGB">
+    <feTurbulence type="fractalNoise" baseFrequency="0.006 0.010" numOctaves="2" seed="9" result="noise"/>
+    <feDisplacementMap in="SourceGraphic" in2="noise" scale="16" xChannelSelector="R" yChannelSelector="G"/>
+  </filter>
+  <filter id="lg-refract-soft" x="-25%" y="-25%" width="150%" height="150%" color-interpolation-filters="sRGB">
+    <feTurbulence type="fractalNoise" baseFrequency="0.010 0.014" numOctaves="2" seed="3" result="noise"/>
+    <feDisplacementMap in="SourceGraphic" in2="noise" scale="9" xChannelSelector="R" yChannelSelector="G"/>
+  </filter>
+  <filter id="lg-wobble" x="-20%" y="-20%" width="140%" height="140%" color-interpolation-filters="sRGB">
+    <feTurbulence type="fractalNoise" baseFrequency="0.004 0.007" numOctaves="3" seed="4" result="n"/>
+    <feDisplacementMap in="SourceGraphic" in2="n" scale="60" xChannelSelector="R" yChannelSelector="B"/>
+  </filter>
+</svg>
+
+<div class="wrap">
+
+  <div class="banner" id="fileBanner" hidden>
+    打开方式不对：网页版请用电脑上的服务地址访问；离线 App 请用安装好的「基金估值」App 打开。
+  </div>
+
+  <header class="card head">
+    <div class="head-top">
+      <div>
+        <h1>基金实时估值</h1>
+        <p class="sub">持仓加权估算 · 天天基金持仓 + 腾讯行情</p>
+      </div>
+      <div class="status">
+        <span class="dot" id="statusDot"></span>
+        <span id="statusText">连接中…</span>
+        <span class="api-tag" id="apiTag"></span>
+        <a class="link" href="#" id="toSenti">A股情绪</a>
+        <button class="iconbtn" id="svcBtn" type="button" aria-label="数据服务地址">⚙</button>
+      </div>
+    </div>
+
+    <div class="bar">
+      <div class="seg" id="modeSeg" role="tablist">
+        <button data-mode="weighted" class="on">持仓加权</button>
+        <button data-mode="index">指数跟踪</button>
+        <button data-mode="official">官方估值</button>
+        <button data-mode="auto">自动</button>
+      </div>
+      <span class="spacer"></span>
+      <select id="intervalSel" aria-label="刷新间隔">
+        <option value="15">15 秒</option>
+        <option value="30" selected>30 秒</option>
+        <option value="60">60 秒</option>
+      </select>
+      <span class="countdown" id="countdown">30s</span>
+      <button class="btn" id="refreshBtn">立即刷新</button>
+    </div>
+    <div class="mkt" id="mktRow"></div>
+  </header>
+
+  <div class="summary" id="summary"></div>
+  <div class="groups" id="groupBar" hidden></div>
+
+  <section class="card table-card">
+    <div class="listbar">
+      <span class="lb-title">自选基金 <span id="fundCount" class="dim"></span></span>
+      <span class="lb-hint">左滑可改份额 / 删除</span>
+    </div>
+
+    <div class="addbar">
+      <input id="addInput" type="text" inputmode="numeric" maxlength="6"
+             placeholder="输入 6 位基金代码，如 110022" spellcheck="false">
+      <button class="btn primary" id="addBtn">添加基金</button>
+      <button class="btn ghost" id="demoBtn">加载示例</button>
+      <button class="btn ghost" id="bulkBtn">批量填份额</button>
+      <span class="hint" id="addHint"></span>
+    </div>
+
+    <div class="fundList" id="fundBody"></div>
+    <div class="empty" id="emptyState">
+      <p><strong>还没有基金</strong></p>
+      <p class="dim">输入 6 位代码添加，或用「加载示例」先看效果。点「批量填份额」可一次录完所有份额与成本，填了才算收益。</p>
+    </div>
+  </section>
+
+  <section class="card dev" id="devCard">
+    <div class="dev-head">
+      <div>
+        <h2>偏差回看 · 收盘对账</h2>
+        <p class="hint">每天净值公布后，用当日实际涨跌对比当天最后一次估算。样本 ≥ 5 个交易日后可开启校准。</p>
+      </div>
+      <label class="switch"><input type="checkbox" id="calibToggle"><span>按历史偏差校准</span></label>
+    </div>
+    <div class="tbl-scroll">
+      <table class="devs">
+        <thead>
+          <tr>
+            <th class="c-name">基金</th>
+            <th>最近对比日</th>
+            <th>当日估算</th>
+            <th>实际涨跌</th>
+            <th>偏差</th>
+            <th>近 20 日均偏差</th>
+            <th>MAE</th>
+            <th>校准值</th>
+          </tr>
+        </thead>
+        <tbody id="devBody"></tbody>
+      </table>
+    </div>
+    <p class="hint" id="devFoot"></p>
+  </section>
+
+  <section class="card notes">
+    <h2>口径与限制</h2>
+    <ul>
+      <li id="noteMode">当前模式：持仓加权。估算涨跌 = Σ(持仓占比×实时涨跌) ÷ Σ持仓占比。</li>
+      <li>持仓来自季报前十大，<strong>最长滞后约 3.5 个月</strong>，经理调仓不可见，这是估算误差的主因。</li>
+      <li>当前十大合计占比 &lt; 60% 或识别为 ETF 联接时，自动改为「权重不归一、剩余按 0」，并在行内标注。</li>
+      <li>指数跟踪档按基金名称自动匹配跟踪指数（如「白酒」→ 中证白酒 sz399997、「沪深300」→ sh000300、「恒生科技」→ hkHSTECH），匹配不到或行情缺失时回落持仓加权。</li>
+      <li>美股为延迟行情（约 15 分钟），港股与 A 股时段不同步；QDII 净值 T+1 确认，估值与净值「当日」口径天然错一天。</li>
+      <li>当日收益 = 份额 ×（估值 − 最新公布净值）；累计收益 = 份额 ×（估值 − 成本净值），均为当前持仓份额口径，不含已赎回部分。</li>
+      <li>持仓数据每自然日只抓一次，缓存在本浏览器；行情 30 秒刷新一次。</li>
+      <li>App 内留空服务地址即「本机直连」：净值与行情由 App 自己联网获取，持仓由 App 代为请求（带 Referer），对账样本也存在本机，不需要开电脑。</li>
+    </ul>
+  </section>
+
+  <p class="foot">估算值为模型推算，非基金公司公布净值，仅供参考，不构成投资建议。</p>
+</div>
+
+<div class="modal" id="editModal" hidden>
+  <div class="modal-box">
+    <h3 id="modalTitle">编辑持仓</h3>
+    <div class="field"><label>持有份额</label><input id="inShares" type="number" step="0.01" min="0" placeholder="0"></div>
+    <div class="field"><label>成本净值（元）</label><input id="inCost" type="number" step="0.0001" min="0" placeholder="买入均价"></div>
+    <div class="field"><label>分组（账户 / 组合）</label>
+      <input id="inAccount" type="text" list="groupList" placeholder="如 券商A / 长期持有，留空=未分组" spellcheck="false"></div>
+    <div class="field"><label>跟踪指数（指数跟踪模式用）</label>
+      <input id="inIndex" type="text" placeholder="留空自动匹配，可填 sh000300 / sz399997 / hkHSI" spellcheck="false"></div>
+    <p class="hint" id="inIndexTip"></p>
+    <div class="modal-acts">
+      <button class="btn" id="modalCancel">取消</button>
+      <button class="btn primary" id="modalSave">保存</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal" id="bulkModal" hidden>
+  <div class="modal-box wide">
+    <h3>填写份额与成本</h3>
+    <p class="hint" style="margin:0 0 10px">份额按当前持仓填；成本净值填买入均价，留空则只算当日收益、不算累计收益。分组用来自动分开各账户/组合的汇总。</p>
+    <div class="bulk-scroll">
+      <table class="bulk">
+        <thead><tr><th>基金</th><th>持有份额</th><th>成本净值</th><th>分组</th></tr></thead>
+        <tbody id="bulkBody"></tbody>
+      </table>
+    </div>
+    <div class="modal-acts">
+      <button class="btn" id="bulkCancel">取消</button>
+      <button class="btn primary" id="bulkSave">保存</button>
+    </div>
+  </div>
+</div>
+
+<datalist id="groupList"></datalist>
+
+<script src="fund_direct.js"></script>
+<script src="fund.js"></script>
+<script src="tabbar.js"></script>
+</body>
+</html>

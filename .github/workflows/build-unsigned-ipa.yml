@@ -1,0 +1,62 @@
+name: Build unsigned IPA
+
+# Windows 上也能触发：把整个 ashare-app 目录推到 GitHub，
+# Actions 会用 macOS 云主机编译出未签名 IPA，直接下载即可自行签名。
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main, master ]
+    paths:
+      - 'web/**'
+      - 'ios/**'
+      - '.github/workflows/build-unsigned-ipa.yml'
+
+jobs:
+  build:
+    # macos-14 在免费账号上会被「无可用 runner」秒取消（runner_id=0），macos-latest 可正常排队
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install XcodeGen
+        env:
+          HOMEBREW_NO_AUTO_UPDATE: 1
+        run: |
+          if command -v xcodegen >/dev/null 2>&1; then
+            echo "XcodeGen already installed"
+          else
+            brew install xcodegen
+          fi
+
+      - name: Sync web assets into iOS bundle
+        run: |
+          rm -rf ios/App/Resources/www
+          mkdir -p ios/App/Resources
+          cp -R web ios/App/Resources/www
+          ls -la ios/App/Resources/www | head -30
+
+      - name: Build unsigned IPA
+        run: bash ios/build-unsigned-ipa.sh
+
+      - name: Inspect bundled app
+        run: |
+          set -e
+          rm -rf /tmp/inspect && mkdir -p /tmp/inspect
+          cd /tmp/inspect && unzip -q "$GITHUB_WORKSPACE/ios/AshareBoard-unsigned.ipa"
+          echo "--- app tree ---"
+          find Payload -maxdepth 2 | head -40
+          echo "--- www files: $(find Payload/AshareBoard.app/www -maxdepth 1 -type f | wc -l) ---"
+          test -f Payload/AshareBoard.app/www/fund.html
+          test -f Payload/AshareBoard.app/Assets.car
+          /usr/libexec/PlistBuddy -c 'Print :CFBundleDisplayName' Payload/AshareBoard.app/Info.plist
+          /usr/libexec/PlistBuddy -c 'Print :StartPage' Payload/AshareBoard.app/Info.plist
+          lipo -info Payload/AshareBoard.app/AshareBoard
+
+      - name: Upload IPAs
+        uses: actions/upload-artifact@v4
+        with:
+          name: unsigned-ipas
+          path: |
+            ios/AshareBoard-unsigned.ipa
+          if-no-files-found: error
